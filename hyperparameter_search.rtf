@@ -1,0 +1,59 @@
+{\rtf1\ansi\ansicpg936\cocoartf2761
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 from hyperopt import fmin, tpe, hp, Trials, STATUS_OK\
+from sklearn.datasets import load_iris\
+from sklearn.ensemble import RandomForestClassifier\
+from sklearn.model_selection import cross_val_score\
+import numpy as np\
+\
+# Load dataset\
+data = load_iris()\
+X = data.data\
+y = data.target\
+\
+# Define the search space\
+space = \{\
+    'n_estimators': hp.choice('n_estimators', range(10, 200, 10)),  # Number of trees\
+    'max_depth': hp.choice('max_depth', range(1, 20)),             # Maximum depth of the tree\
+    'min_samples_split': hp.uniform('min_samples_split', 0.1, 1.0) # Min samples split ratio\
+\}\
+\
+# Objective function to minimize\
+def objective(params):\
+    model = RandomForestClassifier(\
+        n_estimators=int(params['n_estimators']),\
+        max_depth=int(params['max_depth']),\
+        min_samples_split=float(params['min_samples_split']),\
+        random_state=42\
+    )\
+    # Perform 5-fold cross-validation\
+    score = cross_val_score(model, X, y, cv=5, scoring='accuracy').mean()\
+    # Return negative accuracy as we are minimizing\
+    return \{'loss': -score, 'status': STATUS_OK\}\
+\
+# Run the optimization\
+trials = Trials()\
+best = fmin(\
+    fn=objective,             # Objective function\
+    space=space,              # Hyperparameter space\
+    algo=tpe.suggest,         # Tree-structured Parzen Estimator algorithm\
+    max_evals=50,             # Number of evaluations\
+    trials=trials             # Store trial results\
+)\
+\
+# Output the best parameters\
+print("Best parameters:", best)\
+\
+# Convert indices to values for categorical hyperparameters\
+best_params = \{\
+    'n_estimators': range(10, 200, 10)[best['n_estimators']],\
+    'max_depth': range(1, 20)[best['max_depth']],\
+    'min_samples_split': best['min_samples_split']\
+\}\
+print("Decoded Best Parameters:", best_params)\
+}
