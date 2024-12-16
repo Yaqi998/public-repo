@@ -1,0 +1,56 @@
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_auc_score, classification_report
+import xgboost as xgb
+import shap
+
+# Generate synthetic data
+np.random.seed(42)
+num_features = 50
+X = np.random.rand(1000, num_features)  # 50 features
+y = (3 * X[:, 0] + 2 * X[:, 1] - X[:, 2] + np.random.normal(0, 0.5, 1000) > 2.5).astype(int)  # Binary classification
+
+# Split data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Initialize variables
+remaining_features = list(range(X_train.shape[1]))  # Start with all features
+model = xgb.XGBClassifier(use_label_encoder=False, eval_metric='auc', n_estimators=100, random_state=42)
+
+while len(remaining_features) > 34:
+    print(f"Number of features: {len(remaining_features)}")
+
+    # Train model on remaining features
+    model.fit(X_train[:, remaining_features], y_train)
+
+    # Compute SHAP values
+    explainer = shap.Explainer(model, X_train[:, remaining_features])
+    shap_values = explainer(X_train[:, remaining_features])
+
+    # Calculate mean absolute SHAP values for feature importance
+    mean_abs_shap = np.abs(shap_values.values).mean(axis=0)
+    
+    # Identify indices of the 5 least important features
+    least_important = np.argsort(mean_abs_shap)[:5]
+
+    # Remove the least important features
+    remaining_features = [f for i, f in enumerate(remaining_features) if i not in least_important]
+
+# Final model training with 34 features
+model_final = xgb.XGBClassifier(use_label_encoder=False, eval_metric='auc', n_estimators=100, random_state=42)
+model_final.fit(X_train[:, remaining_features], y_train)
+
+y_pred_prob = model_final.predict_proba(X_test[:, remaining_features])[:, 1]
+y_pred = (y_pred_prob > 0.5).astype(int)
+roc_auc = roc_auc_score(y_test, y_pred_prob)
+report = classification_report(y_test, y_pred)
+
+print("Final Model with 34 Features:")
+print(f"ROC AUC: {roc_auc:.2f}")
+print(report)
+
+# SHAP summary plot for final model
+explainer_final = shap.Explainer(model_final, X_train[:, remaining_features])
+shap_values_final = explainer_final(X_train[:, remaining_features])
+shap.summary_plot(shap_values_final, X_train[:, remaining_features])
