@@ -1,0 +1,106 @@
+import tensorflow as tf
+from tensorflow.keras import layers, models, regularizers
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_auc_score
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Example: Create a random DataFrame (replace with your own data)
+np.random.seed(42)
+df = pd.DataFrame(np.random.rand(1000, 10), columns=[f'feature_{i}' for i in range(1, 11)])
+df['target'] = np.random.randint(0, 2, 1000)  # Binary target
+
+# Split into features (X) and target (y)
+X = df.drop(columns='target')
+y = df['target']
+
+# Split into training and validation sets
+X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Define the neural network model
+def create_model(l1_coef):
+    model = models.Sequential()
+    model.add(layers.Dense(1, activation='sigmoid', 
+                           input_dim=X_train.shape[1],  # Number of features
+                           kernel_regularizer=regularizers.l1(l1_coef)))  # L1 regularization
+    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['AUC'])
+    return model
+
+# Lists to store AUC scores and features with large weights
+auc_scores = []
+features_with_large_weights = []
+
+# Objective function for hyperopt to optimize the L1 regularization coefficient
+def objective(params):
+    l1_coef = params['l1_coef']  # Regularization strength
+
+    # Create and compile the model
+    model = create_model(l1_coef)
+
+    # Train the model
+    model.fit(X_train, y_train, epochs=10, batch_size=32, verbose=0)
+
+    # Evaluate the model on the validation set
+    y_pred = model.predict(X_val).flatten()  # Predict probabilities
+    auc_score = roc_auc_score(y_val, y_pred)
+
+    # Track features with weights larger than a threshold (absolute value)
+    weight_threshold = 0.5  # Define your threshold here
+    large_weights_features = np.where(np.abs(model.layers[0].get_weights()[0]) > weight_threshold)[0]
+
+    # Append results to the lists
+    auc_scores.append(auc_score)
+    features_with_large_weights.append(large_weights_features)
+
+    # Hyperopt minimizes the objective, so we return negative AUC
+    return -auc_score
+
+# Define the hyperparameter search space
+from hyperopt import fmin, tpe, hp, Trials
+
+space = {
+    'l1_coef': hp.uniform('l1_coef', 0.01, 1)  # L1 regularization coefficient
+}
+
+# Set up Trials object to track the search
+trials = Trials()
+
+# Run the optimization process
+best = fmin(
+    fn=objective, 
+    space=space, 
+    algo=tpe.suggest, 
+    max_evals=50,  # Number of evaluations you want to run
+    trials=trials
+)
+
+# Print the best hyperparameters found
+print("Best hyperparameters:", best)
+
+# Extract the best L1 regularization coefficient from the optimization result
+best_l1_coef = best['l1_coef']
+
+# Train the final model with the best hyperparameter
+final_model = create_model(best_l1_coef)
+final_model.fit(X_train, y_train, epochs=10, batch_size=32, verbose=0)
+
+# Evaluate final model on the validation set
+final_pred = final_model.predict(X_val).flatten()
+final_auc = roc_auc_score(y_val, final_pred)
+print(f"Final AUC: {final_auc}")
+
+# Plot ROC curve (optional)
+from sklearn.metrics import roc_curve
+fpr, tpr, thresholds = roc_curve(y_val, final_pred)
+plt.plot(fpr, tpr, label=f'AUC = {final_auc:.3f}')
+plt.plot([0, 1], [0, 1], linestyle='--', color='gray')
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('ROC Curve')
+plt.legend(loc='lower right')
+plt.show()
+
+# Now you have:
+# - auc_scores: A list of AUC scores from each evaluation
+# - features_with_large_weights: A list of features (indices) with large weights
