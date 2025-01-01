@@ -1,0 +1,30 @@
+import numpy as np
+import pandas as pd
+from skbio.stats.ordination import pcoa
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Example: Load your distance matrix (replace with your actual data)
+distance_matrix = np.array([
+    [0.0, 0.3, 0.5, 0.7],
+    [0.3, 0.0, 0.4, 0.6],
+    [0.5, 0.4, 0.0, 0.2],
+    [0.7, 0.6, 0.2, 0.0]
+])  # Example matrix
+
+# Run PCoA
+ordination = pcoa(distance_matrix)
+
+# Extract coordinates
+pc1 = ordination.samples['PC1']
+pc2 = ordination.samples['PC2']
+
+# Plot PCoA
+plt.figure(figsize=(8, 6))
+sns.scatterplot(x=pc1, y=pc2, s=100, color="blue")
+plt.xlabel(f"PC1 ({ordination.proportion_explained['PC1']:.2%} variance)")
+plt.ylabel(f"PC2 ({ordination.proportion_explained['PC2']:.2%} variance)")
+plt.title("PCoA Plot")
+plt.grid(True)
+plt.show()
+
