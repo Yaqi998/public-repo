@@ -1,0 +1,18 @@
+#error analysis confusion metrics
+
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+
+cm = confusion_matrix(y_test, y_pred_class)
+ConfusionMatrixDisplay(cm, display_labels=class_names).plot()
+
+#error analysis pca
+
+from sklearn.decomposition import PCA
+import matplotlib.pyplot as plt
+
+pca = PCA(n_components=2)
+X_reduced = pca.fit_transform(X_test)
+
+plt.scatter(X_reduced[:, 0], X_reduced[:, 1], c=y_test - y_pred, cmap='coolwarm')
+plt.colorbar(label='Residual/Error')
+plt.show()
