@@ -16,3 +16,32 @@ X_reduced = pca.fit_transform(X_test)
 plt.scatter(X_reduced[:, 0], X_reduced[:, 1], c=y_test - y_pred, cmap='coolwarm')
 plt.colorbar(label='Residual/Error')
 plt.show()
+
+
+#strip plot
+
+# Generate synthetic data
+np.random.seed(42)
+n_samples = 100
+data = {
+    "Feature": np.random.choice(["A", "B", "C"], size=n_samples),  # Categorical feature
+    "True": np.random.rand(n_samples) * 10,  # True values
+    "Predicted": np.random.rand(n_samples) * 10,  # Predicted values
+}
+
+df = pd.DataFrame(data)
+
+# Calculate residuals (errors)
+df["Residual"] = df["True"] - df["Predicted"]
+
+# Strip plot of residuals grouped by feature
+plt.figure(figsize=(8, 6))
+sns.stripplot(data=df, x="Feature", y="Residual", jitter=True, color="blue", alpha=0.7)
+
+# Add labels and a title
+plt.axhline(0, color="red", linestyle="--")  # Add a horizontal line at 0
+plt.title("Residuals by Feature")
+plt.xlabel("Feature")
+plt.ylabel("Residual")
+plt.show()
+
