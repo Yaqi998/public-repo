@@ -1,0 +1,25 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.metrics import precision_recall_curve, average_precision_score
+
+# Example Data
+# True binary labels
+y_true = np.array([0, 0, 1, 1, 1, 0, 1, 0, 0, 1])
+# Predicted probabilities for the positive class
+y_scores = np.array([0.1, 0.4, 0.35, 0.8, 0.75, 0.3, 0.9, 0.2, 0.4, 0.85])
+
+# Calculate Precision-Recall values
+precision, recall, thresholds = precision_recall_curve(y_true, y_scores)
+
+# Calculate Average Precision (AP)
+average_precision = average_precision_score(y_true, y_scores)
+
+# Plot Precision-Recall Curve
+plt.figure(figsize=(8, 6))
+plt.plot(recall, precision, marker='.', label=f'AP = {average_precision:.2f}')
+plt.title('Precision-Recall Curve')
+plt.xlabel('Recall')
+plt.ylabel('Precision')
+plt.legend()
+plt.grid()
+plt.show()
