@@ -1,0 +1,6 @@
+#eror analysis confusion metrics
+
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+
+cm = confusion_matrix(y_test, y_pred_class)
+ConfusionMatrixDisplay(cm, display_labels=class_names).plot()
