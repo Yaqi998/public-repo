@@ -1,0 +1,79 @@
+import xgboost as xgb
+import shap
+import pandas as pd
+import numpy as np
+from sklearn.metrics import roc_auc_score
+from sklearn.model_selection import train_test_split
+import ray
+
+# Initialize Ray
+ray.init()
+
+@ray.remote
+def evaluate_model(X_train, y_train, X_valid, y_valid):
+    """
+    Train an XGBoost model and calculate AUC on the validation set.
+    """
+    model = xgb.XGBClassifier(use_label_encoder=False, eval_metric="logloss", random_state=42)
+    model.fit(X_train, y_train)
+    y_pred = model.predict_proba(X_valid)[:, 1]
+    auc = roc_auc_score(y_valid, y_pred)
+    return model, auc
+
+def shap_feature_importance(model, X, top_n=None):
+    """
+    Calculate SHAP values and return feature importances.
+    """
+    explainer = shap.TreeExplainer(model)
+    shap_values = explainer.shap_values(X)
+    mean_abs_shap = np.abs(shap_values).mean(axis=0)
+    feature_importance = pd.DataFrame({
+        'feature': X.columns,
+        'importance': mean_abs_shap
+    }).sort_values(by='importance', ascending=False)
+    
+    if top_n is not None:
+        return feature_importance.head(top_n)
+    return feature_importance
+
+# Generate synthetic data
+def generate_data(n_samples=10000, n_features=50):
+    X = pd.DataFrame(np.random.rand(n_samples, n_features), columns=[f'feature_{i}' for i in range(n_features)])
+    y = (np.sum(X.values, axis=1) > 25).astype(int)
+    return X, y
+
+# Main Program
+if __name__ == "__main__":
+    # Generate data
+    X, y = generate_data()
+    X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=42)
+    
+    # Initialize result storage
+    results = []
+    
+    # Iterative feature selection
+    while X_train.shape[1] > 10:
+        # Train model and compute AUC
+        model, auc = ray.get(evaluate_model.remote(X_train, y_train, X_valid, y_valid))
+        results.append({'num_features': X_train.shape[1], 'auc': auc})
+        print(f"Features: {X_train.shape[1]}, AUC: {auc}")
+        
+        # Compute SHAP feature importance
+        feature_importance = shap_feature_importance(model, X_train)
+        
+        # Drop bottom 10% features
+        num_to_drop = max(1, int(0.1 * X_train.shape[1]))
+        low_importance_features = feature_importance.tail(num_to_drop)['feature'].values
+        X_train = X_train.drop(columns=low_importance_features)
+        X_valid = X_valid.drop(columns=low_importance_features)
+    
+    # Final Results
+    results_df = pd.DataFrame(results)
+    print("\nFinal Results:")
+    print(results_df)
+    
+    # Save results to CSV
+    results_df.to_csv("feature_selection_results.csv", index=False)
+
+# Shutdown Ray
+ray.shutdown()
