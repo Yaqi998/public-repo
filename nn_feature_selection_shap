@@ -1,0 +1,78 @@
+import pandas as pd
+import numpy as np
+import shap
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_auc_score
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout
+
+# Generate sample data
+np.random.seed(42)
+n_samples = 1000
+n_features = 50
+X = pd.DataFrame(np.random.rand(n_samples, n_features), columns=[f"feature_{i}" for i in range(n_features)])
+y = np.random.randint(0, 2, size=n_samples)
+
+# Split the data into train and validation sets
+X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Define a simple neural network model
+def create_nn_model(input_dim):
+    model = Sequential([
+        Dense(64, activation='relu', input_dim=input_dim),
+        Dropout(0.3),
+        Dense(32, activation='relu'),
+        Dropout(0.3),
+        Dense(1, activation='sigmoid')
+    ])
+    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['AUC'])
+    return model
+
+# Train the model
+input_dim = X_train.shape[1]
+model = create_nn_model(input_dim)
+model.fit(X_train, y_train, epochs=10, batch_size=32, verbose=1)
+
+# Function to compute SHAP values and drop features
+def shap_feature_selection(model, X_train, X_val, y_val, drop_fraction=0.1, min_features=10):
+    auc_table = []
+    
+    while X_train.shape[1] > min_features:
+        # Compute SHAP values
+        explainer = shap.KernelExplainer(model.predict, X_train)
+        shap_values = explainer.shap_values(X_train, nsamples=100)
+        
+        # Compute mean absolute SHAP values for each feature
+        mean_shap = np.abs(shap_values).mean(axis=0)
+        
+        # Rank features by importance (lowest importance first)
+        feature_ranking = np.argsort(mean_shap)
+        
+        # Determine number of features to drop
+        num_features_to_drop = max(1, int(drop_fraction * X_train.shape[1]))
+        
+        # Select features to drop
+        features_to_drop = X_train.columns[feature_ranking[:num_features_to_drop]]
+        
+        # Drop features from the training and validation sets
+        X_train = X_train.drop(columns=features_to_drop)
+        X_val = X_val.drop(columns=features_to_drop)
+        
+        # Validate the model on the reduced feature set
+        y_pred = model.predict(X_val).flatten()
+        auc = roc_auc_score(y_val, y_pred)
+        
+        # Record the number of features and AUC score
+        auc_table.append({"num_features": X_train.shape[1], "auc": auc})
+    
+    return auc_table, X_train.columns
+
+# Perform feature selection
+auc_table, selected_features = shap_feature_selection(model, X_train, X_val, y_val)
+
+# Save the selected features to a CSV file
+selected_features.to_series().to_csv("selected_features.csv", index=False)
+
+# Convert AUC table to DataFrame and print
+auc_table = pd.DataFrame(auc_table)
+print(auc_table)
