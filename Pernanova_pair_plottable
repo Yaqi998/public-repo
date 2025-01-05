@@ -1,0 +1,58 @@
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
+# Example default map
+# Keys: (axis1_value, axis2_value)
+# Values: (value1, value2)
+default_map = {
+    (1, 1): (0.5, 0.3),
+    (1, 2): (0.6, 0.4),
+    (2, 1): (0.7, 0.2),
+    (2, 2): (0.8, 0.1),
+}
+
+# Extract unique axis values
+axis1_values = sorted({key[0] for key in default_map.keys()})
+axis2_values = sorted({key[1] for key in default_map.keys()})
+
+# Create a DataFrame for structured data representation
+data = pd.DataFrame(index=axis1_values, columns=axis2_values, dtype=object)
+
+# Fill the DataFrame with values from the default map
+for (key1, key2), (value1, value2) in default_map.items():
+    data.loc[key1, key2] = (value1, value2)
+
+# Plot the table
+fig, ax = plt.subplots(figsize=(8, 6))
+
+# Create a heatmap-like table
+for i, row in enumerate(axis1_values):
+    for j, col in enumerate(axis2_values):
+        if pd.notna(data.loc[row, col]):
+            value1, value2 = data.loc[row, col]
+            ax.text(
+                j, i,
+                f"{value1:.2f}\n{value2:.2f}",
+                ha="center", va="center", fontsize=10,
+                bbox=dict(boxstyle="round", facecolor="white", edgecolor="gray")
+            )
+
+# Adjust axis labels and ticks
+ax.set_xticks(range(len(axis2_values)))
+ax.set_yticks(range(len(axis1_values)))
+ax.set_xticklabels(axis2_values)
+ax.set_yticklabels(axis1_values)
+ax.set_xlabel("Axis 2", fontsize=12)
+ax.set_ylabel("Axis 1", fontsize=12)
+ax.set_title("Table with Two Keys and Two Values", fontsize=14)
+
+# Add gridlines
+ax.set_xticks(np.arange(-0.5, len(axis2_values)), minor=True)
+ax.set_yticks(np.arange(-0.5, len(axis1_values)), minor=True)
+ax.grid(which="minor", color="gray", linestyle="--", linewidth=0.5)
+ax.tick_params(which="minor", size=0)
+ax.set_xlim(-0.5, len(axis2_values)-0.5)
+ax.set_ylim(len(axis1_values)-0.5, -0.5)
+
+plt.show()
