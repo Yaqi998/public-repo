@@ -1,0 +1,33 @@
+import ray
+from pyspark.sql import SparkSession
+
+# Initialize Spark Session
+spark = SparkSession.builder.getOrCreate()
+
+# Start Ray with "auto" to connect to all worker nodes
+ray.init(
+    address="auto",  # Use "auto" to let Ray detect the cluster
+    _system_config={"metrics_report_interval_ms": 5000},  # Optional: Adjust Ray's internal reporting interval
+    ignore_reinit_error=True,  # Avoid initialization errors in interactive notebooks
+    logging_level="INFO",  # Optional: Adjust logging level
+)
+
+print("Ray cluster initialized.")
+
+
+# Check Ray's status
+print(ray.cluster_resources())
+
+# Verify that the Ray cluster is running
+print("Number of CPUs:", ray.available_resources().get("CPU", 0))
+
+@ray.remote
+def square(x):
+    return x * x
+
+# Distribute tasks across workers
+futures = [square.remote(i) for i in range(10)]
+
+# Gather results
+results = ray.get(futures)
+print("Results:", results)
