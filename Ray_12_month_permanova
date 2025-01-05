@@ -1,0 +1,88 @@
+import pandas as pd
+import numpy as np
+from skbio.stats.distance import permanova, DistanceMatrix
+from sklearn.metrics.pairwise import euclidean_distances
+import ray
+from itertools import combinations
+
+# Initialize Ray
+ray.init()
+
+@ray.remote
+def compute_permanova(df1, df2):
+    """
+    Compute PERMANOVA between two groups.
+    """
+    combined_df = pd.concat([df1, df2])
+    labels = np.array([0] * len(df1) + [1] * len(df2))
+    
+    # Compute distance matrix
+    distances = euclidean_distances(combined_df.iloc[:, :-1])
+    distance_matrix = DistanceMatrix(distances, ids=combined_df.index.astype(str))
+    
+    # Perform PERMANOVA
+    result = permanova(distance_matrix, grouping=labels)
+    return result['test_statistic'], result['p_value']
+
+def split_by_month(df, month_col="month"):
+    """
+    Split a dataframe into 12 subsets based on the month column.
+    """
+    subsets = {month: sub_df.drop(columns=[month_col]) for month, sub_df in df.groupby(month_col)}
+    return subsets
+
+def pairwise_permanova(subsets):
+    """
+    Perform pairwise PERMANOVA on all combinations of subsets.
+    """
+    months = list(subsets.keys())
+    pairwise_results = {}
+
+    # Generate all pairwise combinations
+    pairs = list(combinations(months, 2))
+    results = []
+    
+    # Submit Ray tasks for each pair
+    for m1, m2 in pairs:
+        df1 = subsets[m1]
+        df2 = subsets[m2]
+        result = compute_permanova.remote(df1, df2)
+        results.append(((m1, m2), result))
+    
+    # Collect results
+    for (m1, m2), result in results:
+        test_stat, p_value = ray.get(result)
+        pairwise_results[(m1, m2)] = {"test_statistic": test_stat, "p_value": p_value}
+    
+    return pairwise_results
+
+# Example Dataset
+def generate_synthetic_data():
+    """
+    Generate synthetic data with a 'month' column and random features.
+    """
+    np.random.seed(42)
+    data = {
+        "month": np.tile(np.arange(1, 13), 100),  # 12 months repeated
+        "feature_1": np.random.rand(1200),
+        "feature_2": np.random.rand(1200)
+    }
+    return pd.DataFrame(data)
+
+# Main Program
+if __name__ == "__main__":
+    # Generate synthetic dataset
+    df = generate_synthetic_data()
+
+    # Split the dataframe by month
+    subsets = split_by_month(df, month_col="month")
+
+    # Perform pairwise PERMANOVA
+    results = pairwise_permanova(subsets)
+
+    # Display the results
+    for pair, stats in results.items():
+        print(f"Pair {pair}: Test Statistic = {stats['test_statistic']:.4f}, P-value = {stats['p_value']:.4f}")
+
+# Shutdown Ray
+ray.shutdown()
