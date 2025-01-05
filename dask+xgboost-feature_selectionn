@@ -1,0 +1,87 @@
+import pandas as pd
+import numpy as np
+import shap
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_auc_score
+from dask.distributed import Client
+import dask.dataframe as dd
+from dask_ml.model_selection import train_test_split as dask_train_test_split
+from dask_xgboost import XGBClassifier
+
+# Initialize Dask Client
+client = Client()
+
+# Sample data generation for demonstration
+np.random.seed(42)
+n_samples = 1000
+n_features = 50
+X = pd.DataFrame(np.random.rand(n_samples, n_features), columns=[f"feature_{i}" for i in range(n_features)])
+y = pd.Series(np.random.randint(0, 2, size=n_samples), name="target")
+
+# Convert to Dask DataFrame
+X = dd.from_pandas(X, npartitions=4)
+y = dd.from_pandas(y, npartitions=4)
+
+# Split data into train and validation sets
+X_train, X_val, y_train, y_val = dask_train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Initialize storage for AUC scores
+auc_table = []
+
+# Function to calculate SHAP values and select features to drop
+def select_features(X_train, y_train, model, drop_fraction=0.1):
+    # Convert Dask DataFrame to Pandas for SHAP processing
+    X_train = X_train.compute()
+    y_train = y_train.compute()
+    
+    # Calculate SHAP values
+    explainer = shap.TreeExplainer(model)
+    shap_values = explainer.shap_values(X_train)
+    
+    # Compute mean absolute SHAP values for each feature
+    mean_shap = np.abs(shap_values).mean(axis=0)
+    
+    # Rank features by importance (lowest importance first)
+    feature_ranking = np.argsort(mean_shap)
+    
+    # Determine number of features to drop
+    num_features_to_drop = max(1, int(drop_fraction * X_train.shape[1]))
+    
+    # Select features to drop
+    features_to_drop = X_train.columns[feature_ranking[:num_features_to_drop]]
+    return features_to_drop
+
+# Iterative feature selection
+while X_train.shape[1].compute() > 10:
+    # Train XGBoost model
+    model = XGBClassifier(objective="binary:logistic", random_state=42)
+    model.fit(X_train, y_train)
+    
+    # Validate the model
+    y_pred = model.predict_proba(X_val)[:, 1].compute()  # Use predict_proba for probabilities
+    auc = roc_auc_score(y_val.compute(), y_pred)
+    
+    # Store current AUC score and remaining features
+    auc_table.append({"num_features": X_train.shape[1].compute(), "auc": auc})
+    
+    # Save the top 30 features when feature size equals 30
+    if X_train.shape[1].compute() == 30:
+        X_train.columns.compute().to_series().to_csv("top_30_features.csv", index=False)
+        print("Top 30 features saved to 'top_30_features.csv'")
+    
+    # Select features to drop using SHAP
+    drop_fraction = 0.1 if X_train.shape[1].compute() > 40 else 1 / X_train.shape[1].compute()
+    features_to_drop = select_features(X_train, y_train, model, drop_fraction)
+    
+    # Drop features from the training and validation sets
+    X_train = X_train.drop(columns=features_to_drop)
+    X_val = X_val.drop(columns=features_to_drop)
+
+# Convert AUC table to DataFrame
+auc_table = pd.DataFrame(auc_table)
+
+# Print final AUC table
+print(auc_table)
+
+# Shutdown Dask client
+client.close()
