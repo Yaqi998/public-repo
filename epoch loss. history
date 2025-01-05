@@ -1,0 +1,24 @@
+#training epoch history
+
+import matplotlib.pyplot as plt
+
+# Assuming `history` is the object returned by `model.fit()`
+def plot_training_history(history):
+    # Extract loss and validation loss
+    training_loss = history.history['loss']
+    validation_loss = history.history['val_loss']
+
+    # Plot the losses
+    epochs = range(1, len(training_loss) + 1)
+    plt.figure(figsize=(10, 6))
+    plt.plot(epochs, training_loss, 'bo-', label='Training Loss')
+    plt.plot(epochs, validation_loss, 'ro-', label='Validation Loss')
+    plt.title('Training and Validation Loss')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+# Call the function with your model's history
+plot_training_history(history)
