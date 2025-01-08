@@ -1,0 +1,17 @@
+replacements = []
+
+for column in df.columns:
+    if df[column].dtype == 'float64':  # For float columns
+        mean_value = df[column].mean()  # Calculate mean
+        df[column].fillna(mean_value, inplace=True)  # Replace NaN with mean
+        replacements.append(mean_value)
+        
+    elif df[column].dtype == 'int64':  # For integer columns
+        mode_value = df[column].mode()[0]  # Calculate mode
+        df[column].fillna(mode_value, inplace=True)  # Replace NaN with mode
+        replacements.append(mean_value)
+
+
+# Use fillna with a dictionary to map columns to fill values
+df.fillna(dict(zip(df.columns, fill_values)), inplace=True)
+  
