@@ -1,0 +1,101 @@
+#draw roc-auc curve
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.metrics import roc_curve, roc_auc_score
+
+# Example function to plot ROC curves
+def plot_roc_curves(y_train, y_train_pred, y_test, y_test_pred, y_intime, y_intime_pred, y_oot, y_oot_pred):
+    plt.figure(figsize=(10, 8))
+    
+    # Compute ROC curves and AUC scores
+    datasets = {
+        "Train": (y_train, y_train_pred),
+        "Test": (y_test, y_test_pred),
+        "In-Time Test": (y_intime, y_intime_pred),
+        "OOT Test": (y_oot, y_oot_pred)
+    }
+    
+    for label, (y_true, y_pred) in datasets.items():
+        fpr, tpr, _ = roc_curve(y_true, y_pred)
+        auc = roc_auc_score(y_true, y_pred)
+        plt.plot(fpr, tpr, label=f"{label} AUC = {auc:.2f}")
+    
+    # Plot styling
+    plt.plot([0, 1], [0, 1], linestyle='--', color='gray')  # Diagonal line
+    plt.title("ROC Curves", fontsize=16)
+    plt.xlabel("False Positive Rate (FPR)", fontsize=14)
+    plt.ylabel("True Positive Rate (TPR)", fontsize=14)
+    plt.legend(fontsize=12)
+    plt.grid(alpha=0.3)
+    plt.tight_layout()
+    plt.show()
+
+# Example usage
+# Replace these with your actual true labels and predicted probabilities
+y_train = np.array([0, 1, 1, 0, 1])  # True labels for train
+y_train_pred = np.array([0.1, 0.8, 0.7, 0.3, 0.9])  # Predicted probabilities for train
+
+y_test = np.array([0, 1, 1, 0, 1])  # True labels for test
+y_test_pred = np.array([0.2, 0.7, 0.6, 0.4, 0.8])  # Predicted probabilities for test
+
+y_intime = np.array([1, 0, 1, 0, 1])  # True labels for in-time test
+y_intime_pred = np.array([0.7, 0.3, 0.8, 0.2, 0.9])  # Predicted probabilities for in-time test
+
+y_oot = np.array([0, 1, 0, 1, 1])  # True labels for OOT test
+y_oot_pred = np.array([0.1, 0.9, 0.2, 0.8, 0.85])  # Predicted probabilities for OOT test
+
+# Call the function to plot
+plot_roc_curves(y_train, y_train_pred, y_test, y_test_pred, y_intime, y_intime_pred, y_oot, y_oot_pred)
+
+
+
+
+
+
+#draw pr-auc curve
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.metrics import precision_recall_curve, average_precision_score
+
+# Function to plot PR curves
+def plot_pr_curves(y_train, y_train_pred, y_test, y_test_pred, y_intime, y_intime_pred, y_oot, y_oot_pred):
+    plt.figure(figsize=(10, 8))
+    
+    # Compute PR curves and Average Precision (AP) scores
+    datasets = {
+        "Train": (y_train, y_train_pred),
+        "Test": (y_test, y_test_pred),
+        "In-Time Test": (y_intime, y_intime_pred),
+        "OOT Test": (y_oot, y_oot_pred)
+    }
+    
+    for label, (y_true, y_pred) in datasets.items():
+        precision, recall, _ = precision_recall_curve(y_true, y_pred)
+        ap = average_precision_score(y_true, y_pred)
+        plt.plot(recall, precision, label=f"{label} AP = {ap:.2f}")
+    
+    # Plot styling
+    plt.title("Precision-Recall Curves", fontsize=16)
+    plt.xlabel("Recall", fontsize=14)
+    plt.ylabel("Precision", fontsize=14)
+    plt.legend(fontsize=12, loc="lower left")
+    plt.grid(alpha=0.3)
+    plt.tight_layout()
+    plt.show()
+
+# Example usage
+# Replace these with your actual true labels and predicted probabilities
+y_train = np.array([0, 1, 1, 0, 1])  # True labels for train
+y_train_pred = np.array([0.1, 0.8, 0.7, 0.3, 0.9])  # Predicted probabilities for train
+
+y_test = np.array([0, 1, 1, 0, 1])  # True labels for test
+y_test_pred = np.array([0.2, 0.7, 0.6, 0.4, 0.8])  # Predicted probabilities for test
+
+y_intime = np.array([1, 0, 1, 0, 1])  # True labels for in-time test
+y_intime_pred = np.array([0.7, 0.3, 0.8, 0.2, 0.9])  # Predicted probabilities for in-time test
+
+y_oot = np.array([0, 1, 0, 1, 1])  # True labels for OOT test
+y_oot_pred = np.array([0.1, 0.9, 0.2, 0.8, 0.85])  # Predicted probabilities for OOT test
+
+# Call the function to plot
+plot_pr_curves(y_train, y_train_pred, y_test, y_test_pred, y_intime, y_intime_pred, y_oot, y_oot_pred)
