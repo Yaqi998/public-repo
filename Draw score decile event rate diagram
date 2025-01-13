@@ -1,0 +1,57 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.datasets import make_classification
+
+# Generate synthetic data for demonstration (replace with your dataset)
+X, y = make_classification(n_samples=1000, n_features=10, n_informative=5, random_state=42)
+
+# Add a 'months' column to simulate monthly groups (e.g., 'Jan', 'Feb', etc.)
+np.random.seed(42)
+months = np.random.choice(['Jan', 'Feb', 'Mar', 'Apr', 'May'], size=X.shape[0])
+df = pd.DataFrame(X, columns=[f'feature_{i}' for i in range(X.shape[1])])
+df['true'] = y
+df['months'] = months
+
+# Split the data into train and test sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Train a logistic regression model (you can use any classifier here)
+model = LogisticRegression()
+model.fit(X_train, y_train)
+
+# Get predicted probabilities for the positive class
+y_pred_prob = model.predict_proba(X_test)[:, 1]
+
+# Add the predicted probabilities to the dataframe
+df_test = df.iloc[X_test.index].copy()
+df_test['pred'] = y_pred_prob
+
+# Now we will group by 'months' and plot the score decile event rate for each group
+plt.figure(figsize=(12, 8))
+
+# Iterate over each month and plot the decile event rate for each group
+for month in df_test['months'].unique():
+    # Filter the data for the current month
+    df_month = df_test[df_test['months'] == month]
+
+    # Create deciles based on the predicted probabilities
+    df_month['decile'] = pd.qcut(df_month['pred'], 10, labels=False)
+
+    # Calculate the event rate (proportion of positives) for each decile
+    decile_event_rate = df_month.groupby('decile')['true'].mean()
+
+    # Plot the decile event rate for the current month as a bar plot
+    plt.bar(decile_event_rate.index + 1, decile_event_rate.values, label=month, alpha=0.6, width=0.5)
+
+# Customize the plot
+plt.title("Score Decile Event Rate Plot by Month (Bar Plot)")
+plt.xlabel("Decile")
+plt.ylabel("Event Rate (Proportion of Positives)")
+plt.legend(title="Month")
+plt.grid(True)
+plt.xticks(np.arange(1, 11))
+plt.tight_layout()
+plt.show()
